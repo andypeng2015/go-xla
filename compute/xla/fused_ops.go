@@ -22,7 +22,7 @@ func (f *Function) FusedLayerNorm(x compute.Value, axes []int, epsilon float64, 
 	return nil, errors.Wrapf(compute.ErrNotImplemented, "FusedLayerNorm not implemented in XLA backend")
 }
 
-func (f *Function) FusedDense(x, weight, bias compute.Value, activation compute.ActivationType) (compute.Value, error) {
+func (f *Function) FusedDense(x, weight, bias compute.Value, options compute.DenseConfig) (compute.Value, error) {
 	return nil, errors.Wrapf(compute.ErrNotImplemented, "FusedDense not implemented in XLA backend")
 }
 
