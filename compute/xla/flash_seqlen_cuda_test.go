@@ -40,7 +40,7 @@ func getFusionBackend(t *testing.T) *Backend {
 		t.Fatalf("probe: parameter v: %v", err)
 	}
 	out, _, err := fn.FusedScaledDotProductAttention(q, k, v,
-		compute.AxesLayoutBSHD, &compute.ScaledDotProductAttentionConfig{Scale: 1.0/math.Sqrt(float64(D)), Causal: true})
+		compute.AttentionAxesLayoutBSHD, &compute.ScaledDotProductAttentionConfig{Scale: 1.0/math.Sqrt(float64(D)), Causal: true})
 	if compute.IsNotImplemented(err) {
 		t.Skipf("[cuda] cuDNN fMHA not supported on this host: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestFMHA_SeqLenPaddingCausal_cuda(t *testing.T) {
 	cfg.Scale = scale
 	cfg.Causal = true
 	out, _, err := fn.FusedScaledDotProductAttention(q, k, v,
-		compute.AxesLayoutBSHD, cfg)
+		compute.AttentionAxesLayoutBSHD, cfg)
 	if err != nil {
 		t.Fatalf("FusedScaledDotProductAttention: %v", err)
 	}

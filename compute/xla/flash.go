@@ -158,9 +158,9 @@ func flashBackendConfigV(b, h, s int, scale float64, dotDimNumbers map[string]an
 
 // flashFwdBackendConfig builds the forward cudnn_fmha_backend_config for q,k,v [B,S,H,D] or [B,H,S,D]
 // (score matrix [B,H,S,S]). Only the scale and score-matrix dims vary with shape.
-func flashFwdBackendConfig(b, h, s int, scale float64, layout compute.AxesLayout, v fmhaVariant) string {
+func flashFwdBackendConfig(b, h, s int, scale float64, layout compute.AttentionAxesLayout, v fmhaVariant) string {
 	var dotDimNumbers map[string]any
-	if layout == compute.AxesLayoutBHSD {
+	if layout == compute.AttentionAxesLayoutBHSD {
 		dotDimNumbers = map[string]any{
 			"bmm1_dot_dimension_numbers": map[string]any{
 				"lhs_contracting_dimensions": []string{"3"},
@@ -175,7 +175,7 @@ func flashFwdBackendConfig(b, h, s int, scale float64, layout compute.AxesLayout
 				"rhs_batch_dimensions":       []string{"0", "1"},
 			},
 		}
-	} else { // compute.AxesLayoutBSHD
+	} else { // compute.AttentionAxesLayoutBSHD
 		dotDimNumbers = map[string]any{
 			"bmm1_dot_dimension_numbers": map[string]any{
 				"lhs_contracting_dimensions": []string{"3"},
@@ -195,9 +195,9 @@ func flashFwdBackendConfig(b, h, s int, scale float64, layout compute.AxesLayout
 }
 
 // flashBwdBackendConfig is the backward counterpart: the four backward-gemm dot_dimension_numbers.
-func flashBwdBackendConfig(b, h, s int, scale float64, layout compute.AxesLayout, v fmhaVariant) string {
+func flashBwdBackendConfig(b, h, s int, scale float64, layout compute.AttentionAxesLayout, v fmhaVariant) string {
 	var dotDimNumbers map[string]any
-	if layout == compute.AxesLayoutBHSD {
+	if layout == compute.AttentionAxesLayoutBHSD {
 		dotDimNumbers = map[string]any{
 			"bmm1_grad_gemm1_dot_dimension_numbers": map[string]any{
 				"lhs_contracting_dimensions": []string{"2"},
@@ -264,7 +264,7 @@ func formatScale(scale float64) string {
 // f16/bf16 (fp8 paused), BSHD-layout, equal-head, on a cuda plugin. Causality and
 // per-batch seqlen padding are supported (mask_type derives from them in selectFMHAVariant);
 // an explicit materialized mask is not (use seqlens instead). Anything else -> ErrNotImplemented.
-func (f *Function) flashSupported(op string, qkvDType dtypes.DType, mask compute.Value, numHeads, numKVHeads, featureDim int, axesLayout compute.AxesLayout, options *compute.ScaledDotProductAttentionConfig) error {
+func (f *Function) flashSupported(op string, qkvDType dtypes.DType, mask compute.Value, numHeads, numKVHeads, featureDim int, axesLayout compute.AttentionAxesLayout, options *compute.ScaledDotProductAttentionConfig) error {
 	if !f.builder.backend.plugin.IsCUDA() {
 		return errors.Wrapf(compute.ErrNotImplemented, "%s: cuDNN flash needs the cuda plugin, have %q", op, f.builder.backend.pluginName)
 	}
@@ -280,7 +280,7 @@ func (f *Function) flashSupported(op string, qkvDType dtypes.DType, mask compute
 		return errors.Wrapf(compute.ErrNotImplemented,
 			"%s: cuDNN flash path requires query/key/value last (feature) dim to be multiple of 8, got %d", op, featureDim)
 	}
-	if axesLayout != compute.AxesLayoutBSHD && axesLayout != compute.AxesLayoutBHSD {
+	if axesLayout != compute.AttentionAxesLayoutBSHD && axesLayout != compute.AttentionAxesLayoutBHSD {
 		return errors.Wrapf(compute.ErrNotImplemented,
 			"%s: cuDNN flash path supports only BSHD or BHSD layouts (got layout %v)", op, axesLayout)
 	}
@@ -308,7 +308,7 @@ func (f *Function) dtypeOf(op string, v compute.Value) (dtypes.DType, error) {
 }
 
 // bshdDims returns the [B,S,H,D] (or [B,H,S,D]) dimensions of a rank-4 value depending on layout.
-func (f *Function) bshdDims(op string, v compute.Value, layout compute.AxesLayout) (b, s, h, d int, err error) {
+func (f *Function) bshdDims(op string, v compute.Value, layout compute.AttentionAxesLayout) (b, s, h, d int, err error) {
 	nodes, err := f.verifyAndCastValues(op, v)
 	if err != nil {
 		return 0, 0, 0, 0, err
@@ -317,7 +317,7 @@ func (f *Function) bshdDims(op string, v compute.Value, layout compute.AxesLayou
 	if len(dims) != 4 {
 		return 0, 0, 0, 0, errors.Errorf("%s: expected rank-4 tensor, got shape %v", op, dims)
 	}
-	if layout == compute.AxesLayoutBSHD {
+	if layout == compute.AttentionAxesLayoutBSHD {
 		return dims[0], dims[1], dims[2], dims[3], nil
 	}
 	return dims[0], dims[2], dims[1], dims[3], nil
@@ -375,7 +375,7 @@ var bwdResultLayouts = [][]int{{3, 1, 2, 0}, {3, 1, 2, 0}, {3, 1, 2, 0}, {0}}
 // (BSHD), bf16. It returns the [B,S,H,D] bf16 output and the [B,H,S] f32 softmax statistics
 // (log-sum-exp) the flash backward needs. The [B,H,S,S] scores never materialize. On non-cuda
 // plugins or unsupported option combinations it returns ErrNotImplemented.
-func (f *Function) FusedScaledDotProductAttention(query, key, value compute.Value, axesLayout compute.AxesLayout, options *compute.ScaledDotProductAttentionConfig) (output compute.Value, statesForVJP []compute.Value, err error) {
+func (f *Function) FusedScaledDotProductAttention(query, key, value compute.Value, axesLayout compute.AttentionAxesLayout, options *compute.ScaledDotProductAttentionConfig) (output compute.Value, statesForVJP []compute.Value, err error) {
 	op := compute.OpTypeFusedScaledDotProductAttention.String()
 	var mask compute.Value
 	if options != nil {
@@ -444,7 +444,7 @@ func (f *Function) FusedScaledDotProductAttention(query, key, value compute.Valu
 	stats := shapes.Make(dtypes.Float32, batchSize, numHeads, seqLen)
 	scratch := shapes.Make(dtypes.Uint8, 0)
 	fwdResultLayouts := [][]int{{3, 1, 2, 0}, {2, 1, 0}, {0}}
-	if axesLayout == compute.AxesLayoutBHSD {
+	if axesLayout == compute.AttentionAxesLayoutBHSD {
 		fwdResultLayouts[0] = []int{3, 2, 1, 0}
 	}
 	outs, err := f.customCall(variant.fwdTarget, flashFwdBackendConfig(batchSize, numHeads, seqLen, scale, axesLayout, variant),
@@ -454,7 +454,7 @@ func (f *Function) FusedScaledDotProductAttention(query, key, value compute.Valu
 	}
 	// If axesLayout == BSHD: outs[0] is BHSD; transpose to BSHD to match the query layout.
 	// If axesLayout == BHSD: outs[0] is already BHSD; no transpose needed.
-	if axesLayout == compute.AxesLayoutBSHD {
+	if axesLayout == compute.AttentionAxesLayoutBSHD {
 		output, err = f.Transpose(outs[0], 0, 2, 1, 3)
 		if err != nil {
 			return nil, nil, err
@@ -470,7 +470,7 @@ func (f *Function) FusedScaledDotProductAttention(query, key, value compute.Valu
 // (statesForVJP[0], from the forward) plus the forward output and the output gradient dOutput into
 // the cuDNN backward custom-call, so the [B,H,S,S] scores never materialize in the backward either.
 // Returns dQuery, dKey, dValue as [B,S,H,D] bf16.
-func (f *Function) FusedScaledDotProductAttentionVJP(query, key, value compute.Value, axesLayout compute.AxesLayout, options *compute.ScaledDotProductAttentionConfig, output compute.Value, statesForVJP []compute.Value, dOutput compute.Value) (dQuery, dKey, dValue compute.Value, err error) {
+func (f *Function) FusedScaledDotProductAttentionVJP(query, key, value compute.Value, axesLayout compute.AttentionAxesLayout, options *compute.ScaledDotProductAttentionConfig, output compute.Value, statesForVJP []compute.Value, dOutput compute.Value) (dQuery, dKey, dValue compute.Value, err error) {
 	op := compute.OpTypeFusedScaledDotProductAttentionVJP.String()
 	var mask compute.Value
 	if options != nil {
@@ -544,7 +544,7 @@ func (f *Function) FusedScaledDotProductAttentionVJP(query, key, value compute.V
 	bhsd := shapes.Make(qDType, batchSize, numHeads, seqLen, featureDim)
 	scratch := shapes.Make(dtypes.Uint8, 0)
 	bwdResultLayouts := [][]int{{3, 1, 2, 0}, {3, 1, 2, 0}, {3, 1, 2, 0}, {0}}
-	if axesLayout == compute.AxesLayoutBHSD {
+	if axesLayout == compute.AttentionAxesLayoutBHSD {
 		bwdResultLayouts[0] = []int{3, 2, 1, 0}
 		bwdResultLayouts[1] = []int{3, 2, 1, 0}
 		bwdResultLayouts[2] = []int{3, 2, 1, 0}
@@ -564,7 +564,7 @@ func (f *Function) FusedScaledDotProductAttentionVJP(query, key, value compute.V
 	}
 	// If axesLayout == BSHD: grads[0..2] = dQ, dK, dV (BHSD); transpose to BSHD to match q,k,v.
 	// If axesLayout == BHSD: grads[0..2] are already BHSD; no transpose needed.
-	if axesLayout == compute.AxesLayoutBSHD {
+	if axesLayout == compute.AttentionAxesLayoutBSHD {
 		if dQuery, err = f.Transpose(grads[0], 0, 2, 1, 3); err != nil {
 			return nil, nil, nil, err
 		}
@@ -592,7 +592,7 @@ func (f *Function) FusedScaledDotProductAttentionVJP(query, key, value compute.V
 	return dQuery, dKey, dValue, nil
 }
 
-func (f *Function) broadcastGQA(x compute.Value, numQueryHeads, numKVHeads int, layout compute.AxesLayout) (compute.Value, error) {
+func (f *Function) broadcastGQA(x compute.Value, numQueryHeads, numKVHeads int, layout compute.AttentionAxesLayout) (compute.Value, error) {
 	groupSize := numQueryHeads / numKVHeads
 	if groupSize == 1 {
 		return x, nil
@@ -607,7 +607,7 @@ func (f *Function) broadcastGQA(x compute.Value, numQueryHeads, numKVHeads int, 
 		return nil, errors.Errorf("broadcastGQA: expected rank-4 tensor, got rank-%d (shape %v)", len(dims), dims)
 	}
 
-	if layout == compute.AxesLayoutBSHD {
+	if layout == compute.AttentionAxesLayoutBSHD {
 		b, s, _, d := dims[0], dims[1], dims[2], dims[3]
 		reshaped, err := f.Reshape(x, b, s, numKVHeads, 1, d)
 		if err != nil {
@@ -634,7 +634,7 @@ func (f *Function) broadcastGQA(x compute.Value, numQueryHeads, numKVHeads int, 
 	}
 }
 
-func (f *Function) reduceSumGQA(dx compute.Value, numQueryHeads, numKVHeads int, layout compute.AxesLayout) (compute.Value, error) {
+func (f *Function) reduceSumGQA(dx compute.Value, numQueryHeads, numKVHeads int, layout compute.AttentionAxesLayout) (compute.Value, error) {
 	groupSize := numQueryHeads / numKVHeads
 	if groupSize == 1 {
 		return dx, nil
@@ -648,7 +648,7 @@ func (f *Function) reduceSumGQA(dx compute.Value, numQueryHeads, numKVHeads int,
 		return nil, errors.Errorf("reduceSumGQA: expected rank-4 tensor, got rank-%d (shape %v)", len(dims), dims)
 	}
 
-	if layout == compute.AxesLayoutBSHD {
+	if layout == compute.AttentionAxesLayoutBSHD {
 		b, s, _, d := dims[0], dims[1], dims[2], dims[3]
 		reshaped, err := f.Reshape(dx, b, s, numKVHeads, groupSize, d)
 		if err != nil {
