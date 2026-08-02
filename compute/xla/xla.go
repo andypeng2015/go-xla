@@ -201,6 +201,7 @@ func NewWithOptions(config string, options pjrt.NamedValuesMap) (*Backend, error
 		config:       config,
 		capabilities: Capabilities.Clone(),
 	}
+	isCuda := pjrt.IsCudaName(pluginName)
 
 	// Support "shared buffers":
 	var setSharedBuffers bool
@@ -221,7 +222,10 @@ func NewWithOptions(config string, options pjrt.NamedValuesMap) (*Backend, error
 	}
 
 	// Support "preallocate":
-	pluginOptions["preallocate"] = false
+	if isCuda {
+		// Only defined for CUDA, so we only set the default if we expect the name to be CUDA.
+		pluginOptions["preallocate"] = false
+	}
 	if b, found, err := parseOptions[bool]("preallocate", backendOptions); err != nil {
 		return nil, err
 	} else if found {
