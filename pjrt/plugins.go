@@ -152,7 +152,7 @@ func (p *Plugin) Attributes() NamedValuesMap {
 // IsCUDA attempts to guess if the plugin is based on NVIDIA CUDA.
 // It's not perfect.
 func (p *Plugin) IsCUDA() bool {
-	return isCuda(p.name)
+	return IsCudaName(p.name)
 }
 
 // IsCPU attempts to guess if the plugin is CPU based.

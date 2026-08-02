@@ -16,8 +16,8 @@ import (
 
 // This file includes the required hacks to support Nvidia's CUDA based PJRT plugins.
 
-// isCuda tries to guess that the plugin named is associated with Nvidia CUDA, to apply the corresponding hacks.
-func isCuda(name string) bool {
+// IsCudaName tries to guess that the plugin named is associated with Nvidia CUDA, to apply the corresponding hacks.
+func IsCudaName(name string) bool {
 	return strings.Contains(strings.ToUpper(name), "CUDA") ||
 		strings.Contains(strings.ToUpper(name), "NVIDIA")
 }
@@ -79,7 +79,7 @@ func cudaPluginCheckDrivers(name string) {
 		// Checks disabled.
 		return
 	}
-	if !isCuda(name) {
+	if !IsCudaName(name) {
 		return
 	}
 
