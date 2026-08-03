@@ -257,16 +257,20 @@ func CPUInstall(platform, version, installPath string, useCache bool, verbosity 
 				isLinked = true
 
 			} else if strings.HasPrefix(baseFile, "pjrt_c_api_cpu_") && strings.HasSuffix(baseFile, "_plugin.dll") {
-				// Windows version of the CPU plugin.
+				// Windows version of the CPU plugin: Copy file (avoid Windows relative symlink resolution issues)
 				linkPath := filepath.Join(installPath, "pjrt_c_api_cpu_plugin.dll")
 				if err := os.Remove(linkPath); err != nil && !os.IsNotExist(err) {
 					return errors.Wrap(err, "failed to remove existing link")
 				}
-				if err := os.Symlink(baseFile, linkPath); err != nil {
-					return errors.Wrap(err, "failed to create symlink")
+				data, err := os.ReadFile(file)
+				if err != nil {
+					return errors.Wrap(err, "failed to read plugin dll")
+				}
+				if err := os.WriteFile(linkPath, data, 0755); err != nil {
+					return errors.Wrap(err, "failed to write plugin dll")
 				}
 				if verbosity == Verbose {
-					fmt.Printf("    Linked to %s\n", linkPath)
+					fmt.Printf("    Copied to %s\n", linkPath)
 				}
 				isLinked = true
 			}
