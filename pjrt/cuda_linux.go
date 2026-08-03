@@ -16,12 +16,6 @@ import (
 
 // This file includes the required hacks to support Nvidia's CUDA based PJRT plugins.
 
-// IsCudaName tries to guess that the plugin named is associated with Nvidia CUDA, to apply the corresponding hacks.
-func IsCudaName(name string) bool {
-	return strings.Contains(strings.ToUpper(name), "CUDA") ||
-		strings.Contains(strings.ToUpper(name), "NVIDIA")
-}
-
 // hasNvidiaGPU tries to guess if there is an actual Nvidia GPU installed (as opposed to only the drivers/PJRT
 // file installed, but no actual hardware).
 // It does that by checking for the presence of the device files in /dev/nvidia*.

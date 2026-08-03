@@ -230,7 +230,7 @@ func checkPlugin(name, pluginPath string) (err error) {
 		}()
 	}
 
-	if IsCudaName(name) && !hasNvidiaGPU() {
+	if IsCUDAName(name) && !hasNvidiaGPU() {
 		return errors.Errorf("plugin %q (%q): no GPU card found, skipping", name, pluginPath)
 	}
 

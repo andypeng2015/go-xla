@@ -2,9 +2,6 @@
 
 package pjrt
 
-// isCuda tries to guess that the plugin named is associated with Nvidia Cuda, to apply the corresponding hacks.
-func isCuda(name string) bool { return false }
-
 // hasNvidiaGPU tries to guess if there is an actual Nvidia GPU installed (as opposed to only the drivers/PJRT
 // file installed, but no actual hardware).
 // It does that by checking for the presence of the device files in /dev/nvidia*.

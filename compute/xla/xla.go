@@ -201,7 +201,7 @@ func NewWithOptions(config string, options pjrt.NamedValuesMap) (*Backend, error
 		config:       config,
 		capabilities: Capabilities.Clone(),
 	}
-	isCuda := pjrt.IsCudaName(pluginName)
+	isCuda := pjrt.IsCUDAName(pluginName)
 
 	// Support "shared buffers":
 	var setSharedBuffers bool
