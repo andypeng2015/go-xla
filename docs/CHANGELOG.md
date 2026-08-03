@@ -1,3 +1,6 @@
+* 2026/08/03
+  - Changed default PJRT version to v0.114.0.
+
 # v0.3.0: API changes for GoMLX v0.28.0 and gomlx/compute v0.1.0; Added flash-attention for CUDA.
 
 - Moved packages out of `pkg/` (that was only used before `/internal` had a special meaning).
