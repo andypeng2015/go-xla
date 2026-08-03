@@ -73,7 +73,7 @@ func cudaPluginCheckDrivers(name string) {
 		// Checks disabled.
 		return
 	}
-	if !IsCudaName(name) {
+	if !IsCUDAName(name) {
 		return
 	}
 
