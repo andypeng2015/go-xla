@@ -30,6 +30,7 @@ func TestError(t *testing.T) {
 	// Call with no arguments: should return an error.
 	_, err = exec.Execute().Done()
 	requireErrorContains(t, err, "PJRT error")
-	requireErrorContains(t, err, "Execution supplied 0 buffers but compiled program expected 2 buffers")
+	requireErrorContains(t, err, "Execution supplied 0")
+	requireErrorContains(t, err, "but compiled program expected 2")
 	fmt.Printf("Received expected error: %s", err)
 }

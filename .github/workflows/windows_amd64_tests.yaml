@@ -59,9 +59,17 @@ jobs:
           DLL_PATH="${HOME}/AppData/Local/go-xla/pjrt_c_api_cpu_plugin.dll"
           if [ -f "$DLL_PATH" ]; then
             echo "Analyzing $DLL_PATH"
-            # Use dumpbin (available on windows-latest) to see what DLLs are missing
-            # If any DLL says "NOT FOUND", that is your culprit.
-            dumpbin /DEPENDENTS "$DLL_PATH"
+            VSWHERE="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
+            if [ ! -f "$VSWHERE" ]; then
+              VSWHERE="/c/Program Files/Microsoft Visual Studio/Installer/vswhere.exe"
+            fi
+            VS_INSTALL_DIR="$("$VSWHERE" -products '*' -latest -property installationPath | tr '\\' '/')"
+            DUMPBIN="$(find "$VS_INSTALL_DIR" -name "dumpbin.exe" | head -n 1)"
+            if [ -n "$DUMPBIN" ]; then
+              "$DUMPBIN" /DEPENDENTS "$DLL_PATH"
+            else
+              echo "dumpbin.exe not found under Visual Studio installation"
+            fi
           else
             echo "DLL not found at $DLL_PATH"
           fi
@@ -70,7 +78,7 @@ jobs:
         run: |
           (cd ./cmd/pjrt_installer && go work init && go work use . '..\..' && go install .)
           export CPU_VERSION="$(sed -n 's/.*var DefaultCPUVersion = "\(.*\)".*/\1/p' ./internal/utils/utils.go)"
-          env GH_TOKEN=$GH_TOKEN $(go env GOPATH)/bin/pjrt_installer -plugin cpu -version "${CPU_VERSION}" -path '~\AppData\Local\go-xla'
+          env GH_TOKEN=$GH_TOKEN $(go env GOPATH)/bin/pjrt_installer -plugin cpu -version "${CPU_VERSION}" -path "${HOME}/AppData/Local/go-xla"
           echo "Contents for go-xla:"
           ls -la "${HOME}/AppData/Local/go-xla"
           echo "-----------"
