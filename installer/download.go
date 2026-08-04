@@ -618,6 +618,9 @@ func Unzip(zipPath, outputDirPath string) ([]string, error) {
 
 	var extractedFiles []string
 
+	// Clean outputDirPath to ensure consistent path separators across OSes.
+	outputDirPath = filepath.Clean(outputDirPath)
+
 	for _, f := range r.File {
 		// Clean the targetPath and make sure it falls within outputDirPath.
 		targetPath := filepath.Join(outputDirPath, f.Name)
